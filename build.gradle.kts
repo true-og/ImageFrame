@@ -163,7 +163,7 @@ subprojects {
     }
 
     tasks.withType<Jar>().configureEach {
-        archiveBaseName.set(project.name)
+        archiveBaseName.set(rootProject.name)
     }
 }
 
