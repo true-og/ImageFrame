@@ -93,8 +93,16 @@ subprojects {
             }
         }
         maven("https://repo.loohpjames.com/repository") {
+            // Fallback mirror for Bukkit/Spigot snapshots when local bootstrap artifacts are unavailable.
+            metadataSources {
+                mavenPom()
+                artifact()
+                ignoreGradleMetadataRedirection()
+            }
             content {
                 includeGroup("com.loohp")
+                includeGroup("org.bukkit")
+                includeGroup("org.spigotmc")
             }
         }
         maven("https://repo.extendedclip.com/releases/") {

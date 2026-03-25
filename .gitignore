@@ -17,6 +17,15 @@ out/
 # BlueJ files
 *.ctxt
 
+# Gradle files
+.gradle
+build
+
+# Eclipse files
+.classpath
+.project
+.settings/
+
 # Package Files #
 *.war
 *.nar
