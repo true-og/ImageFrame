@@ -125,16 +125,6 @@ public class Events implements Listener {
                 }
                 break;
             }
-            case CRAFTER: {
-                if ((isClickingTop && isCombinedMaps(event.getCursor()))
-                        || (isClickingBottom && event.isShiftClick() && isCombinedMaps(event.getCurrentItem()))
-                        || (isClickingTop && event.getHotbarButton() != -1 && isCombinedMaps(event.getWhoClicked().getInventory().getItem(event.getHotbarButton())))
-                        || (isClickingTop && event.getClick().equals(ClickType.SWAP_OFFHAND) && isCombinedMaps(event.getWhoClicked().getEquipment().getItemInOffHand()))
-                        || containsCombinedMaps(i -> event.getView().getItem(i), 9)) {
-                    event.setResult(Event.Result.DENY);
-                }
-                break;
-            }
             case CARTOGRAPHY: {
                 if ((isClickingTop && isCombinedMaps(event.getCursor()))
                         || (isClickingBottom && event.isShiftClick() && isCombinedMaps(event.getCurrentItem()))

@@ -103,16 +103,7 @@ public class AnimatedFakeMapManager implements Listener, Runnable {
                 try {
                     if (itemFrame.isValid()) {
                         Set<Player> trackedPlayers;
-                        if (isFolia) {
-                            try {
-                                //noinspection deprecation
-                                trackedPlayers = itemFrame.getTrackedPlayers();
-                            } catch (Throwable e) {
-                                trackedPlayers = NMS.getInstance().getEntityTrackers(itemFrame);
-                            }
-                        } else {
-                            trackedPlayers = NMS.getInstance().getEntityTrackers(itemFrame);
-                        }
+                        trackedPlayers = NMS.getInstance().getEntityTrackers(itemFrame);
                         future.complete(new ItemFrameInfo(itemFrame.getEntityId(), trackedPlayers, itemFrame.getItem()));
                     } else {
                         future.complete(null);

@@ -49,7 +49,6 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.CraftingRecipe;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
@@ -107,16 +106,6 @@ public class InvisibleFrameManager implements Listener {
         ShapelessRecipe recipe = new ShapelessRecipe(INVISIBLE_GLOW_ITEM_FRAME_CRAFTING_KEY, withInvisibleItemFrameData(result))
                 .addIngredient(Material.valueOf("GLOW_INK_SAC"))
                 .addIngredient(new RecipeChoice.ExactChoice(withInvisibleItemFrameData(new ItemStack(Material.ITEM_FRAME))));
-        if (ImageFrame.version.isNewerOrEqualTo(MCVersion.V1_20)) {
-            CraftingRecipe vanillaRecipe = (CraftingRecipe) Bukkit.getRecipesFor(result).stream()
-                    .filter(r -> r instanceof CraftingRecipe)
-                    .findFirst()
-                    .orElse(null);
-            if (vanillaRecipe != null) {
-                recipe.setCategory(vanillaRecipe.getCategory());
-                recipe.setGroup(vanillaRecipe.getGroup());
-            }
-        }
         Bukkit.addRecipe(recipe);
     }
 
@@ -318,9 +307,9 @@ public class InvisibleFrameManager implements Listener {
     }
 
     private boolean hasInvisibilityEffect(AreaEffectCloud areaEffectCloud) {
-        PotionType baseType = areaEffectCloud.getBasePotionType();
+        PotionType baseType = areaEffectCloud.getBasePotionData().getType();
         if (baseType != null) {
-            if (baseType.getPotionEffects().stream().anyMatch(e -> e.getType().equals(PotionEffectType.INVISIBILITY))) {
+            if (baseType.equals(PotionType.INVISIBILITY)) {
                 return true;
             }
         }

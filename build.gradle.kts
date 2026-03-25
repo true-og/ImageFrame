@@ -6,6 +6,7 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.jvm.tasks.Jar
+import java.io.File
 
 plugins {
     id("java")
@@ -19,33 +20,50 @@ version = "1.9.0.3"
 val adventureVersion = "4.25.0"
 val moduleMinecraftVersions =
     mapOf(
-        "V1_16" to "1.16.1-R0.1-SNAPSHOT",
-        "V1_16_2" to "1.16.3-R0.1-SNAPSHOT",
-        "V1_16_4" to "1.16.4-R0.1-SNAPSHOT",
-        "V1_17" to "1.17.1-R0.1-SNAPSHOT",
-        "V1_18" to "1.18.1-R0.1-SNAPSHOT",
-        "V1_18_2" to "1.18.2-R0.1-SNAPSHOT",
-        "V1_19" to "1.19.2-R0.1-SNAPSHOT",
-        "V1_19_3" to "1.19.3-R0.1-SNAPSHOT",
         "V1_19_4" to "1.19.4-R0.1-SNAPSHOT",
-        "V1_20" to "1.20.1-R0.1-SNAPSHOT",
-        "V1_20_2" to "1.20.2-R0.1-SNAPSHOT",
-        "V1_20_3" to "1.20.3-R0.1-SNAPSHOT",
-        "V1_20_5" to "1.20.5-R0.1-SNAPSHOT",
-        "V1_20_6" to "1.20.6-R0.1-SNAPSHOT",
-        "V1_21" to "1.21-R0.1-SNAPSHOT",
-        "V1_21_1" to "1.21.1-R0.1-SNAPSHOT",
-        "V1_21_2" to "1.21.2-R0.1-SNAPSHOT",
-        "V1_21_3" to "1.21.3-R0.1-SNAPSHOT",
-        "V1_21_4" to "1.21.4-R0.1-SNAPSHOT",
-        "V1_21_5" to "1.21.5-R0.1-SNAPSHOT",
-        "V1_21_6" to "1.21.6-R0.1-SNAPSHOT",
-        "V1_21_7" to "1.21.7-R0.1-SNAPSHOT",
-        "V1_21_8" to "1.21.8-R0.1-SNAPSHOT",
-        "V1_21_9" to "1.21.9-R0.1-SNAPSHOT",
-        "V1_21_10" to "1.21.10-R0.1-SNAPSHOT",
-        "V1_21_11" to "1.21.11-R0.1-SNAPSHOT",
     )
+
+fun localMavenRepoDirs(project: Project): List<File> {
+    val repos = mutableListOf(
+        File(System.getProperty("user.home"), ".m2/repository"),
+    )
+    System.getProperty("SELF_MAVEN_LOCAL_REPO")?.let { path ->
+        repos.add(project.file(path))
+    }
+    return repos.distinct()
+}
+
+fun artifactExists(repoDir: File, group: String, artifact: String, version: String): Boolean {
+    val artifactDir = File(repoDir, "${group.replace('.', '/')}/$artifact/$version")
+    if (!artifactDir.isDirectory) {
+        return false
+    }
+    val exactJar = File(artifactDir, "$artifact-$version.jar")
+    if (exactJar.isFile) {
+        return true
+    }
+    return artifactDir.listFiles()?.any { file ->
+        file.isFile && file.extension == "jar" && file.name.startsWith("$artifact-$version")
+    } == true
+}
+
+fun needsLocalCraftBukkitBootstrap(project: Project, version: String): Boolean {
+    return localMavenRepoDirs(project).none { repoDir ->
+        artifactExists(repoDir, "org.bukkit", "craftbukkit", version)
+    }
+}
+
+fun fallbackRepoMinecraftVersion(project: Project, moduleName: String, exactVersion: String): String {
+    if (!needsLocalCraftBukkitBootstrap(project, exactVersion)) {
+        return exactVersion
+    }
+
+    return when (moduleName) {
+        "V1_20_3" -> "1.20.4-R0.1-SNAPSHOT"
+        "V1_21_2" -> "1.21.3-R0.1-SNAPSHOT"
+        else -> exactVersion
+    }
+}
 
 allprojects {
     group = rootProject.group
@@ -69,11 +87,29 @@ subprojects {
                 logger.warn("SELF_MAVEN_LOCAL_REPO is not a directory: $path")
             }
         }
+        maven("https://libraries.minecraft.net/") {
+            content {
+                includeGroup("com.mojang")
+            }
+        }
+        maven("https://repo.loohpjames.com/repository") {
+            // Prefer the mirror first so Gradle does not pin snapshot metadata from Spigot that
+            // points at missing timestamped artifacts for legacy Bukkit/CraftBukkit coordinates.
+            metadataSources {
+                mavenPom()
+                artifact()
+                ignoreGradleMetadataRedirection()
+            }
+            content {
+                includeGroup("com.loohp")
+                includeGroup("org.bukkit")
+                includeGroup("org.spigotmc")
+            }
+        }
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") {
             content {
                 includeGroup("org.spigotmc")
                 includeGroup("org.bukkit")
-                includeGroup("com.mojang")
             }
         }
         maven("https://repo.papermc.io/repository/maven-public/") {
@@ -90,19 +126,6 @@ subprojects {
         maven("https://repo.viaversion.com") {
             content {
                 includeGroup("com.viaversion")
-            }
-        }
-        maven("https://repo.loohpjames.com/repository") {
-            // Fallback mirror for Bukkit/Spigot snapshots when local bootstrap artifacts are unavailable.
-            metadataSources {
-                mavenPom()
-                artifact()
-                ignoreGradleMetadataRedirection()
-            }
-            content {
-                includeGroup("com.loohp")
-                includeGroup("org.bukkit")
-                includeGroup("org.spigotmc")
             }
         }
         maven("https://repo.extendedclip.com/releases/") {
@@ -146,8 +169,8 @@ subprojects {
 
 project(":abstraction") {
     dependencies {
-        compileOnly("org.spigotmc:spigot-api:1.16.1-R0.1-SNAPSHOT")
-        compileOnly("org.bukkit:craftbukkit:1.16.1-R0.1-SNAPSHOT")
+        compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
+        compileOnly("org.bukkit:craftbukkit:1.19.4-R0.1-SNAPSHOT")
         compileOnly("net.kyori:adventure-text-serializer-gson:$adventureVersion")
         compileOnly("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
         compileOnly("net.kyori:adventure-text-serializer-plain:$adventureVersion")
@@ -157,9 +180,11 @@ project(":abstraction") {
 
 moduleMinecraftVersions.forEach { (moduleName, minecraftVersion) ->
     project(":$moduleName") {
+        val resolvedMinecraftVersion = fallbackRepoMinecraftVersion(this, moduleName, minecraftVersion)
+
         dependencies {
-            compileOnly("org.spigotmc:spigot-api:$minecraftVersion")
-            compileOnly("org.bukkit:craftbukkit:$minecraftVersion")
+            compileOnly("org.spigotmc:spigot-api:$resolvedMinecraftVersion")
+            compileOnly("org.bukkit:craftbukkit:$resolvedMinecraftVersion")
             compileOnly("net.kyori:adventure-text-serializer-gson:$adventureVersion")
             compileOnly("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
             compileOnly("net.kyori:adventure-text-serializer-plain:$adventureVersion")
