@@ -30,19 +30,24 @@ import com.loohp.imageframe.metrics.Metrics;
 import com.loohp.imageframe.objectholders.AnimatedFakeMapManager;
 import com.loohp.imageframe.objectholders.CombinedMapItemHandler;
 import com.loohp.imageframe.objectholders.CustomClientNetworkManager;
+import com.loohp.imageframe.objectholders.DitheringType;
 import com.loohp.imageframe.objectholders.IFPlayerManager;
 import com.loohp.imageframe.objectholders.IFPlayerPreference;
 import com.loohp.imageframe.objectholders.ImageMap;
 import com.loohp.imageframe.objectholders.ImageMapAccessPermissionType;
 import com.loohp.imageframe.objectholders.ImageMapCacheControlMode;
 import com.loohp.imageframe.objectholders.ImageMapCreationTaskManager;
+import com.loohp.imageframe.objectholders.ImageMapLoader;
 import com.loohp.imageframe.objectholders.ImageMapLoaders;
 import com.loohp.imageframe.objectholders.ImageMapManager;
 import com.loohp.imageframe.objectholders.IntRange;
 import com.loohp.imageframe.objectholders.IntRangeList;
 import com.loohp.imageframe.objectholders.ItemFrameSelectionManager;
 import com.loohp.imageframe.objectholders.MapMarkerEditManager;
+import com.loohp.imageframe.objectholders.PreloadedMap;
 import com.loohp.imageframe.objectholders.RateLimitedPacketSendingManager;
+import com.loohp.imageframe.objectholders.URLImageMap;
+import com.loohp.imageframe.objectholders.URLImageMapCreateInfo;
 import com.loohp.imageframe.objectholders.UnsetState;
 import com.loohp.imageframe.placeholderapi.Placeholders;
 import com.loohp.imageframe.storage.ImageFrameStorage;
@@ -50,6 +55,7 @@ import com.loohp.imageframe.storage.ImageFrameStorageLoaders;
 import com.loohp.imageframe.updater.Updater;
 import com.loohp.imageframe.upload.ImageUploadManager;
 import com.loohp.imageframe.utils.ChatColorUtils;
+import com.loohp.imageframe.utils.HTTPRequestUtils;
 import com.loohp.imageframe.utils.KeyUtils;
 import com.loohp.imageframe.utils.MCVersion;
 import com.loohp.imageframe.utils.ModernEventsUtils;
@@ -70,7 +76,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,6 +143,9 @@ public class ImageFrame extends JavaPlugin {
 
     public static Key storageType;
     public static Map<String, String> storageOptions;
+
+    public static boolean preloadedMapsEnabled;
+    public static List<PreloadedMap> preloadedMaps;
 
     public static LanguageManager languageManager;
     public static ImageFrameStorage imageFrameStorage;
@@ -289,9 +300,44 @@ public class ImageFrame extends JavaPlugin {
 
         ImageMapLoaders.init();
 
-        Scheduler.runTaskAsynchronously(this, () -> imageMapManager.loadMaps(ifPlayerManager));
+        Scheduler.runTaskAsynchronously(this, () -> {
+            imageMapManager.loadMaps(ifPlayerManager);
+            loadPreloadedMaps();
+        });
 
         getServer().getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] ImageFrame has been Enabled!");
+    }
+
+    private void loadPreloadedMaps() {
+        if (!preloadedMapsEnabled || preloadedMaps.isEmpty()) {
+            return;
+        }
+        CommandSender console = getServer().getConsoleSender();
+        for (PreloadedMap preloadedMap : preloadedMaps) {
+            String name = preloadedMap.getName();
+            String url = preloadedMap.getUrl();
+            try {
+                if (imageMapManager.getFromCreator(ImageMap.CONSOLE_CREATOR, name) != null) {
+                    continue;
+                }
+                if (!isURLAllowed(url)) {
+                    console.sendMessage(ChatColor.RED + "[ImageFrame] Unable to preload ImageMap \"" + name + "\": URL is not allowed by Settings.RestrictImageUrl: " + url);
+                    continue;
+                }
+                String imageType = HTTPRequestUtils.getContentType(url);
+                if (imageType == null) {
+                    imageType = URLConnection.guessContentTypeFromName(url);
+                }
+                imageType = imageType == null ? "" : imageType.trim();
+                ImageMapLoader<? extends URLImageMap, URLImageMapCreateInfo> loader = ImageMapLoaders.getLoader(URLImageMap.class, URLImageMapCreateInfo.class, imageType, console);
+                URLImageMap imageMap = loader.create(new URLImageMapCreateInfo(imageMapManager, name, url, preloadedMap.getWidth(), preloadedMap.getHeight(), preloadedMap.getDitheringType(), ImageMap.CONSOLE_CREATOR)).get();
+                imageMapManager.addMap(imageMap);
+                console.sendMessage(ChatColor.GREEN + "[ImageFrame] Preloaded ImageMap \"" + name + "\" from " + url);
+            } catch (Exception e) {
+                console.sendMessage(ChatColor.RED + "[ImageFrame] Unable to preload ImageMap \"" + name + "\" from " + url);
+                new IOException("Unable to preload ImageMap \"" + name + "\" from " + url, e).printStackTrace();
+            }
+        }
     }
 
     @Override
@@ -385,6 +431,22 @@ public class ImageFrame extends JavaPlugin {
 
         storageType = KeyUtils.imageFrameKey(config.getConfiguration().getString("Storage.Type"));
         storageOptions = config.getConfiguration().getConfigurationSection("Storage.Options").getValues(true).entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toString()));
+
+        preloadedMapsEnabled = config.getConfiguration().getBoolean("PreloadedMaps.Enabled");
+        preloadedMaps = new ArrayList<>();
+        List<Map<?, ?>> preloadedMapList = config.getConfiguration().getMapList("PreloadedMaps.Maps");
+        for (Map<?, ?> entry : preloadedMapList) {
+            String name = entry.get("Name") == null ? null : entry.get("Name").toString();
+            String url = entry.get("URL") == null ? null : entry.get("URL").toString();
+            if (name == null || url == null) {
+                getServer().getConsoleSender().sendMessage(ChatColor.RED + "[ImageFrame] Skipping invalid PreloadedMaps entry (missing Name or URL): " + entry);
+                continue;
+            }
+            int width = entry.get("Width") instanceof Number ? ((Number) entry.get("Width")).intValue() : 1;
+            int height = entry.get("Height") instanceof Number ? ((Number) entry.get("Height")).intValue() : 1;
+            DitheringType ditheringType = DitheringType.fromName(entry.get("Dithering") == null ? null : entry.get("Dithering").toString());
+            preloadedMaps.add(new PreloadedMap(name, url, width, height, ditheringType));
+        }
 
         debugLogging = config.getConfiguration().getBoolean("DebugLogging");
 
