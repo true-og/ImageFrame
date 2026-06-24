@@ -36,6 +36,7 @@ import com.loohp.imageframe.objectholders.IFPlayerPreference;
 import com.loohp.imageframe.objectholders.ImageMap;
 import com.loohp.imageframe.objectholders.ImageMapAccessPermissionType;
 import com.loohp.imageframe.objectholders.ImageMapCacheControlMode;
+import com.loohp.imageframe.objectholders.ImageMapCreationTask;
 import com.loohp.imageframe.objectholders.ImageMapCreationTaskManager;
 import com.loohp.imageframe.objectholders.ImageMapLoader;
 import com.loohp.imageframe.objectholders.ImageMapLoaders;
@@ -63,6 +64,7 @@ import com.loohp.platformscheduler.ScheduledTask;
 import com.loohp.platformscheduler.Scheduler;
 import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -313,8 +315,18 @@ public class ImageFrame extends JavaPlugin {
         for (PreloadedMap preloadedMap : preloadedMaps) {
             String name = preloadedMap.getName();
             String url = preloadedMap.getUrl();
+            int width = preloadedMap.getWidth();
+            int height = preloadedMap.getHeight();
             try {
                 if (imageMapManager.getFromCreator(ImageMap.CONSOLE_CREATOR, name) != null) {
+                    continue;
+                }
+                if (width <= 0 || height <= 0) {
+                    console.sendMessage(ChatColor.RED + "[ImageFrame] Unable to preload ImageMap \"" + name + "\": Width and Height must be positive (got " + width + "x" + height + ")");
+                    continue;
+                }
+                if (width * height > mapMaxSize) {
+                    console.sendMessage(ChatColor.RED + "[ImageFrame] Unable to preload ImageMap \"" + name + "\": " + width + "x" + height + " exceeds Settings.MaxSize (" + mapMaxSize + ")");
                     continue;
                 }
                 if (!isURLAllowed(url)) {
@@ -326,10 +338,26 @@ public class ImageFrame extends JavaPlugin {
                     imageType = URLConnection.guessContentTypeFromName(url);
                 }
                 imageType = imageType == null ? "" : imageType.trim();
-                ImageMapLoader<? extends URLImageMap, URLImageMapCreateInfo> loader = ImageMapLoaders.getLoader(URLImageMap.class, URLImageMapCreateInfo.class, imageType, console);
-                URLImageMap imageMap = loader.create(new URLImageMapCreateInfo(imageMapManager, name, url, preloadedMap.getWidth(), preloadedMap.getHeight(), preloadedMap.getDitheringType(), ImageMap.CONSOLE_CREATOR)).get();
-                imageMapManager.addMap(imageMap);
-                console.sendMessage(ChatColor.GREEN + "[ImageFrame] Preloaded ImageMap \"" + name + "\" from " + url);
+                String finalImageType = imageType;
+                // Route through the creation task manager so preloads honour
+                // Settings.ParallelProcessingLimit and Settings.MaxProcessingTime.
+                // All preloads share CONSOLE_CREATOR, which the manager only allows one
+                // task at a time for, so each task must be completed before the next is
+                // enqueued; the finally block frees the creator slot.
+                ImageMapCreationTask<URLImageMap> creationTask = null;
+                try {
+                    creationTask = imageMapCreationTaskManager.enqueue(ImageMap.CONSOLE_CREATOR, name, () -> {
+                        ImageMapLoader<? extends URLImageMap, URLImageMapCreateInfo> loader = ImageMapLoaders.getLoader(URLImageMap.class, URLImageMapCreateInfo.class, finalImageType, console);
+                        return loader.create(new URLImageMapCreateInfo(imageMapManager, name, url, width, height, preloadedMap.getDitheringType(), ImageMap.CONSOLE_CREATOR)).get();
+                    });
+                    URLImageMap imageMap = creationTask.get();
+                    imageMapManager.addMap(imageMap);
+                    console.sendMessage(ChatColor.GREEN + "[ImageFrame] Preloaded ImageMap \"" + name + "\" from " + url);
+                } finally {
+                    if (creationTask != null) {
+                        creationTask.complete(Component.empty());
+                    }
+                }
             } catch (Exception e) {
                 console.sendMessage(ChatColor.RED + "[ImageFrame] Unable to preload ImageMap \"" + name + "\" from " + url);
                 new IOException("Unable to preload ImageMap \"" + name + "\" from " + url, e).printStackTrace();
