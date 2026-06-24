@@ -250,6 +250,10 @@ public class ImageMapManager implements AutoCloseable {
     }
 
     public synchronized void loadMaps(IFPlayerManager ifPlayerManager) {
+        loadMaps(ifPlayerManager, null);
+    }
+
+    public synchronized void loadMaps(IFPlayerManager ifPlayerManager, Runnable completionCallback) {
         maps.clear();
         mapsByView.clear();
         List<MutablePair<String, Future<? extends ImageMap>>> futures = imageFrameStorage.loadMaps(this, deletedMapIds, ifPlayerManager);
@@ -265,6 +269,9 @@ public class ImageMapManager implements AutoCloseable {
                 }
             }
             Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] Data loading completed! Loaded " + count + " ImageMaps!");
+            if (completionCallback != null) {
+                completionCallback.run();
+            }
         });
     }
 

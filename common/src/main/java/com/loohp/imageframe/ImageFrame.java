@@ -300,10 +300,7 @@ public class ImageFrame extends JavaPlugin {
 
         ImageMapLoaders.init();
 
-        Scheduler.runTaskAsynchronously(this, () -> {
-            imageMapManager.loadMaps(ifPlayerManager);
-            loadPreloadedMaps();
-        });
+        imageMapManager.loadMaps(ifPlayerManager, this::loadPreloadedMaps);
 
         getServer().getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] ImageFrame has been Enabled!");
     }
