@@ -225,6 +225,11 @@ public class ImageFrame extends JavaPlugin {
         if (sender.hasPermission("imageframe.adminbypass")) {
             return true;
         }
+        // Console-created (preloaded) maps are usable by everyone, but not editable/deletable
+        if (imageMap.getCreator().equals(ImageMap.CONSOLE_CREATOR)
+                && ImageMapAccessPermissionType.GET.containsPermission(permissionType)) {
+            return true;
+        }
         if (!(sender instanceof Player)) {
             return false;
         }

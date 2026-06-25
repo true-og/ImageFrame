@@ -997,8 +997,12 @@ public class Commands implements CommandExecutor, TabCompleter {
                             sendMessage(sender, translatable(NO_PERMISSION).color(NamedTextColor.RED));
                         } else {
                             Component prefix = translatable(MAP_LOOKUP, player.getName() == null ? "" : player.getName(), player.getUniqueId()).color(NamedTextColor.AQUA);
-                            Component suffix = ImageFrame.imageMapManager.getFromCreator(player.getUniqueId(), Comparator.comparing(each -> each.getCreationTime()))
-                                    .stream()
+                            List<ImageMap> listedMaps = new ArrayList<>(ImageFrame.imageMapManager.getFromCreator(player.getUniqueId(), Comparator.comparing(each -> each.getCreationTime())));
+                            // Also surface console-created (preloaded) maps so players can find and use them
+                            if (!player.getUniqueId().equals(ImageMap.CONSOLE_CREATOR)) {
+                                listedMaps.addAll(ImageFrame.imageMapManager.getFromCreator(ImageMap.CONSOLE_CREATOR, Comparator.comparing(each -> each.getCreationTime())));
+                            }
+                            Component suffix = listedMaps.stream()
                                     .map(each -> {
                                         String qualifiedName = each.getCreatorName() + ":" + each.getName();
                                         return text(each.getName()).color(NamedTextColor.YELLOW).clickEvent(ClickEvent.runCommand("/imageframe info " + qualifiedName));

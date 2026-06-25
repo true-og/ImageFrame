@@ -45,6 +45,9 @@ public class ImageMapUtils {
         if (playerName.isEmpty() || playerName.trim().isEmpty()) {
             return new MutablePair<>(sender instanceof Player ? ((Player) sender).getUniqueId() : null, imageMapName);
         }
+        if (playerName.equalsIgnoreCase(ImageMap.CONSOLE_CREATOR_NAME)) {
+            return new MutablePair<>(ImageMap.CONSOLE_CREATOR, imageMapName);
+        }
         UUID playerUUID = Bukkit.getOfflinePlayer(playerName).getUniqueId();
         return new MutablePair<>(playerUUID, imageMapName);
     }
@@ -57,7 +60,15 @@ public class ImageMapUtils {
             }
         }
         MutablePair<UUID, String> extraction = ImageMapUtils.extractImageMapPlayerPrefixedName(sender, str);
-        return ImageFrame.imageMapManager.getFromCreator(extraction.getFirst(), extraction.getSecond());
+        ImageMap imageMap = ImageFrame.imageMapManager.getFromCreator(extraction.getFirst(), extraction.getSecond());
+        if (imageMap != null) {
+            return imageMap;
+        }
+        // Fall back to console-created (preloaded) maps so players can reference them by bare name
+        if (str.indexOf(':') < 0) {
+            return ImageFrame.imageMapManager.getFromCreator(ImageMap.CONSOLE_CREATOR, extraction.getSecond());
+        }
+        return null;
     }
 
     public static Set<String> getImageMapNameSuggestions(CommandSender sender, String str) {
