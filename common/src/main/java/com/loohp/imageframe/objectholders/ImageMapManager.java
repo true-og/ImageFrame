@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
 
 public class ImageMapManager implements AutoCloseable {
@@ -253,7 +254,7 @@ public class ImageMapManager implements AutoCloseable {
         loadMaps(ifPlayerManager, null);
     }
 
-    public synchronized void loadMaps(IFPlayerManager ifPlayerManager, Runnable completionCallback) {
+    public synchronized void loadMaps(IFPlayerManager ifPlayerManager, IntSupplier completionCallback) {
         maps.clear();
         mapsByView.clear();
         List<MutablePair<String, Future<? extends ImageMap>>> futures = imageFrameStorage.loadMaps(this, deletedMapIds, ifPlayerManager);
@@ -268,10 +269,10 @@ public class ImageMapManager implements AutoCloseable {
                     e.printStackTrace();
                 }
             }
-            Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] Data loading completed! Loaded " + count + " ImageMaps!");
             if (completionCallback != null) {
-                completionCallback.run();
+                count += completionCallback.getAsInt();
             }
+            Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] Data loading completed! Loaded " + count + " ImageMaps!");
         });
     }
 

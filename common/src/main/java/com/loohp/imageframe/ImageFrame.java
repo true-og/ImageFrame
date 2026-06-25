@@ -307,10 +307,11 @@ public class ImageFrame extends JavaPlugin {
         getServer().getConsoleSender().sendMessage(ChatColor.GREEN + "[ImageFrame] ImageFrame has been Enabled!");
     }
 
-    private void loadPreloadedMaps() {
+    private int loadPreloadedMaps() {
         if (!preloadedMapsEnabled || preloadedMaps.isEmpty()) {
-            return;
+            return 0;
         }
+        int count = 0;
         CommandSender console = getServer().getConsoleSender();
         for (PreloadedMap preloadedMap : preloadedMaps) {
             String name = preloadedMap.getName();
@@ -352,6 +353,7 @@ public class ImageFrame extends JavaPlugin {
                     });
                     URLImageMap imageMap = creationTask.get();
                     imageMapManager.addMap(imageMap);
+                    count++;
                     console.sendMessage(ChatColor.GREEN + "[ImageFrame] Preloaded ImageMap \"" + name + "\" from " + url);
                 } finally {
                     if (creationTask != null) {
@@ -363,6 +365,7 @@ public class ImageFrame extends JavaPlugin {
                 new IOException("Unable to preload ImageMap \"" + name + "\" from " + url, e).printStackTrace();
             }
         }
+        return count;
     }
 
     @Override
