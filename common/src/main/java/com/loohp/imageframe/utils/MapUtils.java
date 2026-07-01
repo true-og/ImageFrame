@@ -165,15 +165,10 @@ public class MapUtils {
     public static BufferedImage resize(BufferedImage source, int width, int height, int mapWidth) {
         BufferedImage image = new BufferedImage(width * mapWidth, height * mapWidth, BufferedImage.TYPE_INT_ARGB);
         Graphics g = image.createGraphics();
-        double wRatio = (double) image.getWidth() / (double) source.getWidth();
-        double hRatio = (double) image.getHeight() / (double) source.getHeight();
-        if (wRatio < hRatio) {
-            int h = (int) Math.round(source.getHeight() * wRatio);
-            g.drawImage(source, 0, (image.getHeight() - h) / 2, image.getWidth(), h, null);
-        } else {
-            int w = (int) Math.round(source.getWidth() * hRatio);
-            g.drawImage(source, (image.getWidth() - w) / 2, 0, w, image.getHeight(), null);
-        }
+        // Stretch the source to fill the entire map grid so the image reaches the edges of the
+        // item frames instead of being letterboxed with transparent margins (which show up as a
+        // border around the mural).
+        g.drawImage(source, 0, 0, image.getWidth(), image.getHeight(), null);
         g.dispose();
         return image;
     }

@@ -426,6 +426,9 @@ public abstract class ImageMap {
                         if (prePlaceCheck.test(frame, item)) {
                             frame.setItem(item, false);
                             frame.setRotation(rotation);
+                            // Hide the item frame's own border so adjacent map tiles tile
+                            // seamlessly with no thin pixel border between them.
+                            frame.setVisible(false);
                             return;
                         }
                     }

@@ -9,6 +9,37 @@ Put images on maps and walls!
 
 More information (screenshots, commands, permissions) about the plugin can be found on the Spigot page linked above.
 
+## Creating Images In-Game
+
+The main command is `/imageframe` (aliases: `/iframe`, `/if`, `/frame`). All creation commands are op-only by default.
+Sizes are measured in **maps** — one map fills one item frame block, so a `4 x 3` image needs a 4-wide by 3-tall grid of item frames.
+
+### Quick way — create straight onto a wall
+1. Place a grid of item frames on the wall (e.g. 4 wide × 3 tall).
+2. Run `/imageframe select`, then left-click one corner frame and right-click the opposite corner frame to select the whole grid.
+3. Run `/imageframe create <name> <url> selection`.
+
+The image is downloaded, sized to your selection, and placed into the frames automatically.
+
+### Manual way — create, then place yourself
+1. `/imageframe create <name> <url> <width> <height>` — creates the image map (`width`/`height` in maps).
+2. Put it on frames one of two ways:
+   - `/imageframe get <name>` — gives you the map item(s); place each on the item frames in order (left→right, top→bottom).
+   - or select a frame grid (as above) and run `/imageframe get <name> selection` to auto-fill it.
+
+### Using preloaded maps
+Preloaded maps (defined in the config) are owned by **Console**. Anyone with access can see them with `/imageframe list` and use them by name:
+- `/imageframe get <name> selection`, or reference them explicitly as `Console:<name>`.
+
+### Useful extras
+- `/imageframe info <name>` — shows a map's size (handy to build a matching frame grid) and its URL.
+- `/imageframe refresh <name>` — re-downloads and re-renders an existing map.
+- Optional flags on `create`/`get`: a dithering type, and `combined`/`separated`.
+
+### Behaviour of this fork
+- Images are **stretched to fill** the whole frame grid (edge to edge) instead of being letterboxed with a transparent border. Match your frame grid's width:height to the image's aspect ratio to avoid distortion.
+- Item frames filled by the plugin are automatically made **invisible**, so neighbouring tiles join seamlessly with no thin border between them.
+
 ## Built against Spigot
 Built against [Spigot's API](https://www.spigotmc.org/wiki/buildtools/) (required mc versions are listed on the spigot page above).
 Plugins built against Spigot usually also work with [Paper](https://papermc.io/).

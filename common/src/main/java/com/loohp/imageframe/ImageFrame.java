@@ -225,9 +225,11 @@ public class ImageFrame extends JavaPlugin {
         if (sender.hasPermission("imageframe.adminbypass")) {
             return true;
         }
-        // Console-created (preloaded) maps are usable by everyone, but not editable/deletable
-        if (imageMap.getCreator().equals(ImageMap.CONSOLE_CREATOR)
-                && ImageMapAccessPermissionType.GET.containsPermission(permissionType)) {
+        // Console-created (preloaded) maps have no player owner, so the access-control layer would
+        // otherwise deny everyone. Grant access here and let the per-command permissions
+        // (imageframe.get / imageframe.refresh / imageframe.delete, all op by default) gate who can
+        // actually use or modify them. This lets admins refresh/re-render preloaded maps.
+        if (imageMap.getCreator().equals(ImageMap.CONSOLE_CREATOR)) {
             return true;
         }
         if (!(sender instanceof Player)) {
